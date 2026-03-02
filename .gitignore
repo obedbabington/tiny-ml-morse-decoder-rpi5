@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Virtual Environment
+morseai_venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model files (user must generate these)
+# Uncomment if you want to track model files:
+# !model/morse_classifier.tflite
+# !model/normalization_config.npz
+model/*.tflite
+model/*.npz
+model/*.txt
+!model/.gitkeep
+
+# Export directories
+model_export/
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
