@@ -88,10 +88,14 @@ class MorseAIDecoder:
         Args:
             signals: List of 4 timing values in microseconds.
         """
+        # Debug: show raw signals received from capture
         self._log(f"Raw signals: {signals}")
+        print(f"[DEBUG] _on_character_complete called with signals: {signals}")
         
         # Run inference
         result = self._inference_engine.predict(signals)
+        print(f"[DEBUG] Inference result: letter={result.letter}, "
+              f"confidence={result.confidence:.3f}")
         
         # Display result
         print()

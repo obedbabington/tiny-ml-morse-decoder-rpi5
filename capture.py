@@ -56,7 +56,7 @@ class MorseCapture:
         
         # Signal storage
         self._signals: List[float] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         
         # Timing state
         self._press_start_time: Optional[float] = None
@@ -66,9 +66,11 @@ class MorseCapture:
         # active_low logic: button connects GPIO to GND when pressed
         self._button = Button(
             gpio_pin,
-            pull_up=True,           # Enable internal pull-up resistor
-            bounce_time=bounce_time  # Hardware debounce filter
+            pull_up=True,             # Enable internal pull-up resistor
+            bounce_time=bounce_time   # Hardware debounce filter
         )
+        # DEBUG: confirm initialization
+        print(f"[DEBUG] MorseCapture initialized on GPIO {gpio_pin}")
         
         # Attach interrupt handlers
         self._button.when_pressed = self._on_button_pressed
@@ -91,6 +93,7 @@ class MorseCapture:
             return
             
         # Cancel any pending timeout
+        print("[DEBUG] Button PRESSED")
         self._cancel_timeout()
         
         # Record press start time
@@ -110,6 +113,7 @@ class MorseCapture:
         release_time = self._get_time_us()
         duration_us = release_time - self._press_start_time
         self._press_start_time = None
+        print(f"[DEBUG] Button RELEASED, duration_us={duration_us:.1f}")
         
         # Store signal if we haven't exceeded MAX_SIGNALS
         with self._lock:
@@ -149,13 +153,19 @@ class MorseCapture:
         """
         if not self._running:
             return
-            
+
+        print("[DEBUG] TIMEOUT fired, ending character")
         with self._lock:
             signals = self.get_padded_signals()
             self._signals = []  # Reset for next character
-        
+
+        # Extra debug to trace callback behavior
+        print(f"[DEBUG] Signals passed to callback: {signals}")
+        print(f"[DEBUG] on_character_complete is None? {self.on_character_complete is None}")
+
         # Trigger callback if registered
         if self.on_character_complete is not None:
+            print("[DEBUG] Invoking on_character_complete callback")
             self.on_character_complete(signals)
     
     def get_padded_signals(self) -> List[float]:
