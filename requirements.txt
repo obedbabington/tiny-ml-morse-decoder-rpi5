@@ -1,7 +1,10 @@
 # MorseAI Raspberry Pi 5 - Python Dependencies
-# Optimized for TensorFlow Lite inference on 64-bit Raspberry Pi OS
+# Optimized for TensorFlow Lite inference on Raspberry Pi (32-bit and 64-bit)
 
-numpy>=1.24.0,<2.0.0
-tflite-runtime>=2.14.0
-gpiozero>=2.0.0
-RPi.GPIO>=0.7.1
+numpy==1.26.4
+tflite-runtime==2.14.0
+gpiozero==2.0.1
+RPi.GPIO==0.7.1
+lgpio==0.2.2.0
+pigpio==1.78
+colorzero==2.0

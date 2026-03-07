@@ -1,34 +1,31 @@
 """
 TensorFlow Lite Inference Engine for Morse Code Classification
 
-This module handles neural network inference using TensorFlow Lite runtime.
-Designed to be lightweight and optimized for Raspberry Pi 5.
+Handles neural network inference using TensorFlow Lite runtime, optimized
+for edge devices like Raspberry Pi.
 
 The model expects 4 timing values (in microseconds) and outputs
 probabilities for 11 classes (A-J + Unclassified).
 """
 
 import numpy as np
+import time
 from pathlib import Path
 from typing import Tuple, List, Optional
 from dataclasses import dataclass
 
 # Use tflite-runtime (lightweight) instead of full TensorFlow
+# This reduces memory footprint and startup time on embedded devices
 import tflite_runtime.interpreter as tflite
 
-
-# =============================================================================
-# Configuration Constants
-# =============================================================================
-
-# Model architecture (from morse_decode.h)
-INPUT_SIZE = 4
+# Model architecture constants
+INPUT_SIZE = 4   # 4 timing values per Morse code character
 OUTPUT_SIZE = 11  # 10 letters (A-J) + 1 unclassified
 
-# Character mapping
+# Character mapping - output classes from the neural network
 LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'U']  # U = Unclassified
 
-# Default model path
+# Default model paths
 DEFAULT_MODEL_PATH = Path(__file__).parent / "model" / "morse_classifier.tflite"
 DEFAULT_CONFIG_PATH = Path(__file__).parent / "model" / "normalization_config.npz"
 
@@ -36,7 +33,7 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent / "model" / "normalization_config.np
 @dataclass
 class InferenceResult:
     """
-    Result of a Morse code inference.
+    Result of a Morse code inference prediction.
     
     Attributes:
         letter: Predicted character (A-J or 'U' for unclassified).
@@ -54,10 +51,8 @@ class MorseInference:
     """
     TensorFlow Lite inference engine for Morse code classification.
     
-    This class loads a .tflite model and normalization parameters,
-    then provides real-time inference for Morse code timing signals.
-    
-    Equivalent to the run_inference() function in morse_decode.c.
+    Loads a .tflite model and normalization parameters, then provides
+    real-time inference for Morse code timing signals.
     """
     
     def __init__(
@@ -76,16 +71,16 @@ class MorseInference:
             config_path: Path to normalization config (.npz file).
             input_mean: Manual normalization mean values (overrides config).
             input_scale: Manual normalization scale values (overrides config).
-            num_threads: Number of CPU threads for inference.
+            num_threads: Number of CPU threads for inference (default: 4).
         """
         self.model_path = Path(model_path) if model_path else DEFAULT_MODEL_PATH
         self.config_path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
         self.num_threads = num_threads
         
-        # Load normalization parameters
+        # Load normalization parameters (required for input preprocessing)
         self._load_normalization_params(input_mean, input_scale)
         
-        # Load TFLite model
+        # Load and initialize the TFLite model
         self._load_model()
     
     def _load_normalization_params(
@@ -96,10 +91,8 @@ class MorseInference:
         """
         Load normalization parameters (mean and scale).
         
-        Priority:
-        1. Manual parameters passed to constructor
-        2. Saved .npz config file
-        3. Default values (zeros mean, ones scale - no normalization)
+        Normalization ensures input data matches the distribution the model
+        was trained on. Priority: manual params > config file > defaults.
         
         Args:
             input_mean: Optional manual mean values.
@@ -112,7 +105,7 @@ class MorseInference:
             print(f"[Inference] Using manual normalization parameters")
             
         elif self.config_path.exists():
-            # Load from config file
+            # Load from saved config file (created during model conversion)
             config = np.load(str(self.config_path))
             self.input_mean = config['mean'].astype(np.float32)
             self.input_scale = config['scale'].astype(np.float32)
@@ -125,7 +118,7 @@ class MorseInference:
             self.input_mean = np.zeros(INPUT_SIZE, dtype=np.float32)
             self.input_scale = np.ones(INPUT_SIZE, dtype=np.float32)
         
-        # Validate dimensions
+        # Validate dimensions match expected input size
         assert len(self.input_mean) == INPUT_SIZE, \
             f"Mean size mismatch: expected {INPUT_SIZE}, got {len(self.input_mean)}"
         assert len(self.input_scale) == INPUT_SIZE, \
@@ -136,21 +129,22 @@ class MorseInference:
         if not self.model_path.exists():
             raise FileNotFoundError(
                 f"Model not found: {self.model_path}\n"
-                f"Please run the model conversion script first."
+                f"Please ensure the model files are in place."
             )
         
-        # Initialize TFLite interpreter
+        # Initialize TFLite interpreter with thread configuration
+        # The interpreter manages model execution and memory allocation
         self.interpreter = tflite.Interpreter(
             model_path=str(self.model_path),
             num_threads=self.num_threads
         )
         self.interpreter.allocate_tensors()
         
-        # Get input/output tensor details
+        # Get input/output tensor details for validation
         self.input_details = self.interpreter.get_input_details()
         self.output_details = self.interpreter.get_output_details()
         
-        # Validate model architecture
+        # Validate model architecture matches expectations
         input_shape = self.input_details[0]['shape']
         output_shape = self.output_details[0]['shape']
         
@@ -163,8 +157,8 @@ class MorseInference:
         """
         Normalize input signals using StandardScaler transform.
         
-        Equivalent to normalize_input() in morse_decode.c:
-            normalized[i] = (input[i] - input_mean[i]) / input_scale[i]
+        Formula: normalized[i] = (input[i] - mean[i]) / scale[i]
+        This ensures input data matches the training distribution.
         
         Args:
             signals: Raw timing signals in microseconds.
@@ -175,34 +169,13 @@ class MorseInference:
         signals = np.array(signals, dtype=np.float32)
         return (signals - self.input_mean) / self.input_scale
     
-    def predict_letter(
-        self,
-        signals: List[float],
-        return_all_probs: bool = False
-    ) -> Tuple[str, float]:
-        """
-        Predict the Morse code letter from timing signals.
-        
-        Args:
-            signals: List of 4 timing values in microseconds.
-            return_all_probs: If True, include full probability distribution.
-        
-        Returns:
-            Tuple of (predicted_letter, confidence_score).
-            If return_all_probs is True, also returns probability array.
-        """
-        result = self.predict(signals)
-        
-        if return_all_probs:
-            return result.letter, result.confidence, result.all_probabilities
-        return result.letter, result.confidence
-    
     def predict(self, signals: List[float]) -> InferenceResult:
         """
-        Run full inference and return detailed results.
+        Run inference on timing signals and return prediction result.
         
-        This is the main inference function, equivalent to run_inference()
-        in morse_decode.c.
+        This is the main inference function. It normalizes the input,
+        runs the neural network, and returns the predicted letter with
+        confidence score and timing information.
         
         Args:
             signals: List of 4 timing values in microseconds.
@@ -210,24 +183,24 @@ class MorseInference:
         Returns:
             InferenceResult with letter, confidence, timing, and probabilities.
         """
-        import time
-        
-        # Ensure correct input size
+        # Ensure input is exactly 4 elements
         signals = list(signals)
-        while len(signals) < INPUT_SIZE:
-            signals.append(0.0)
-        signals = signals[:INPUT_SIZE]
+        if len(signals) != INPUT_SIZE:
+            raise ValueError(
+                f"Expected {INPUT_SIZE} timing values, got {len(signals)}. "
+                f"Signals should be padded to {INPUT_SIZE} elements."
+            )
         
-        # Start timing
+        # Measure inference time for performance monitoring
         start_time = time.perf_counter_ns()
         
-        # Normalize input
+        # Normalize input to match training distribution
         normalized = self.normalize(signals)
         
-        # Prepare input tensor (batch size = 1)
+        # Prepare input tensor (add batch dimension: shape becomes [1, 4])
         input_data = np.expand_dims(normalized, axis=0).astype(np.float32)
         
-        # Run inference
+        # Run inference: set input, invoke model, get output
         self.interpreter.set_tensor(self.input_details[0]['index'], input_data)
         self.interpreter.invoke()
         
@@ -235,18 +208,18 @@ class MorseInference:
         output_data = self.interpreter.get_tensor(self.output_details[0]['index'])
         probabilities = output_data[0]
         
-        # Stop timing
+        # Calculate inference time in microseconds
         inference_time_us = (time.perf_counter_ns() - start_time) / 1000.0
         
-        # Find best prediction
+        # Find the class with highest probability
         max_idx = np.argmax(probabilities)
         max_prob = probabilities[max_idx]
         
-        # Map index to letter
+        # Map index to letter label
         if max_idx < len(LABELS):
             letter = LABELS[max_idx]
         else:
-            letter = 'U'  # Unclassified
+            letter = 'U'  # Unclassified (safety fallback)
         
         return InferenceResult(
             letter=letter,
@@ -269,8 +242,6 @@ def display_result(result: InferenceResult) -> None:
     """
     Display inference result in a formatted way.
     
-    Equivalent to displayResult() in morse_decode.c.
-    
     Args:
         result: InferenceResult from prediction.
     """
@@ -281,35 +252,7 @@ def display_result(result: InferenceResult) -> None:
 
 
 # =============================================================================
-# Utility Functions
-# =============================================================================
-
-def create_normalization_config(
-    mean: List[float],
-    scale: List[float],
-    output_path: str
-) -> None:
-    """
-    Create a normalization config file from mean and scale values.
-    
-    This function helps convert the values from network_parameters.h
-    into a format usable by this inference engine.
-    
-    Args:
-        mean: List of mean values (from StandardScaler).
-        scale: List of scale values (from StandardScaler).
-        output_path: Path to save the .npz config file.
-    """
-    np.savez(
-        output_path,
-        mean=np.array(mean, dtype=np.float32),
-        scale=np.array(scale, dtype=np.float32)
-    )
-    print(f"[Config] Saved normalization config to: {output_path}")
-
-
-# =============================================================================
-# Standalone Testing (with mock data)
+# Standalone Testing
 # =============================================================================
 
 if __name__ == "__main__":
@@ -340,17 +283,28 @@ if __name__ == "__main__":
         print("Test Predictions:")
         print("-" * 50)
         
-        # Test signals (example timing values in microseconds)
+        # Test cases with known Morse code patterns (timing in microseconds)
+        # Format: [signal1, signal2, signal3, signal4]
         test_cases = [
-            [0.0, 0.0, 0.0, 0.0],          # Should be 'E' (single dot)
-            [100000.0, 0.0, 0.0, 0.0],     # Short signal
-            [500000.0, 0.0, 0.0, 0.0],     # Longer signal
-            [100000.0, 300000.0, 0.0, 0.0], # Two signals
+            # E: · (single dot)
+            ([150000.0, 0.0, 0.0, 0.0], 'E'),
+            # I: ·· (two dots)
+            ([120000.0, 130000.0, 0.0, 0.0], 'I'),
+            # A: ·− (dot, dash)
+            ([140000.0, 350000.0, 0.0, 0.0], 'A'),
+            # H: ···· (four dots)
+            ([110000.0, 120000.0, 130000.0, 140000.0], 'H'),
+            # D: −·· (dash, dot, dot)
+            ([320000.0, 150000.0, 160000.0, 0.0], 'D'),
+            # B: −··· (dash, dot, dot, dot)
+            ([340000.0, 140000.0, 150000.0, 160000.0], 'B'),
         ]
         
-        for signals in test_cases:
+        for signals, expected_label in test_cases:
             result = engine.predict(signals)
+            match_indicator = "✓" if result.letter == expected_label else "✗"
             print(f"\nInput: {signals}")
+            print(f"Expected: {expected_label} {match_indicator}")
             display_result(result)
         
     except Exception as e:

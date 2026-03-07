@@ -1,4 +1,0 @@
-# This directory contains the TFLite model files.
-# After running the conversion script in your notebook, copy these files here:
-#   - morse_classifier.tflite
-#   - normalization_config.npz

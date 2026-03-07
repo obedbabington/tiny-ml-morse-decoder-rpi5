@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-MorseAI - Morse Code AI Decoder for Raspberry Pi 5
+MorseAI - Morse Code Neural Network Decoder for Raspberry Pi 5
 
-This is the main entry point that connects the signal capture module
-with the TensorFlow Lite inference engine.
+Main entry point that connects GPIO signal capture with TensorFlow Lite inference
+to decode Morse code in real-time.
 
 Usage:
     python3 main.py [--gpio PIN] [--model PATH] [--debug]
@@ -19,32 +19,22 @@ import time
 from pathlib import Path
 from typing import List
 
-# Import our modules
 from capture import MorseCapture, GPIO_PIN, TIMEOUT_SECONDS, BOUNCE_TIME
 from inference import MorseInference, InferenceResult, display_result
 
-
-# =============================================================================
 # Configuration
-# =============================================================================
-
 VERSION = "1.0.0"
 DEFAULT_MODEL_DIR = Path(__file__).parent / "model"
 DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR / "morse_classifier.tflite"
 DEFAULT_CONFIG_PATH = DEFAULT_MODEL_DIR / "normalization_config.npz"
 
 
-# =============================================================================
-# Main Application
-# =============================================================================
-
 class MorseAIDecoder:
     """
-    Main application class that integrates capture and inference.
+    Main application that integrates GPIO capture with neural network inference.
     
-    This class connects the hardware button input (capture.py) with
-    the neural network inference (inference.py) to decode Morse code
-    in real-time.
+    Connects the hardware button input (capture.py) with the TensorFlow Lite
+    inference engine (inference.py) to decode Morse code in real-time.
     """
     
     def __init__(
@@ -59,8 +49,8 @@ class MorseAIDecoder:
         
         Args:
             gpio_pin: GPIO pin for the button (BCM numbering).
-            model_path: Path to the TFLite model file.
-            config_path: Path to normalization config file.
+            model_path: Path to the TFLite model file (defaults to model/morse_classifier.tflite).
+            config_path: Path to normalization config file (defaults to model/normalization_config.npz).
             debug: Enable debug output.
         """
         self.gpio_pin = gpio_pin
@@ -72,7 +62,7 @@ class MorseAIDecoder:
         self._capture = None
         self._running = False
         self._decoded_message = []
-        
+    
     def _log(self, message: str) -> None:
         """Print debug message if debug mode is enabled."""
         if self.debug:
@@ -82,22 +72,19 @@ class MorseAIDecoder:
         """
         Callback when a character capture is complete.
         
-        This is called by the capture module when the timeout
-        triggers (2 seconds of no button activity).
+        This is called by the capture module when the timeout triggers
+        (2 seconds of no button activity). We run inference on the captured
+        timing signals and display the predicted letter.
         
         Args:
             signals: List of 4 timing values in microseconds.
         """
-        # Debug: show raw signals received from capture
         self._log(f"Raw signals: {signals}")
-        print(f"[DEBUG] _on_character_complete called with signals: {signals}")
         
-        # Run inference
+        # Run neural network inference on the captured signals
         result = self._inference_engine.predict(signals)
-        print(f"[DEBUG] Inference result: letter={result.letter}, "
-              f"confidence={result.confidence:.3f}")
         
-        # Display result
+        # Display the prediction result
         print()
         display_result(result)
         
@@ -119,7 +106,7 @@ class MorseAIDecoder:
         print("=" * 60)
         print()
         
-        # Initialize inference engine
+        # Load the TensorFlow Lite model and normalization parameters
         print("Loading neural network model...")
         try:
             self._inference_engine = MorseInference(
@@ -131,7 +118,7 @@ class MorseAIDecoder:
             print("\nPlease ensure the model files are in place:")
             print(f"  Model: {self.model_path}")
             print(f"  Config: {self.config_path}")
-            print("\nRun the TFLite conversion snippet in your notebook first.")
+
             sys.exit(1)
         
         print()
@@ -142,7 +129,7 @@ class MorseAIDecoder:
         print(f"  Timeout: {TIMEOUT_SECONDS}s")
         print()
         
-        # Initialize capture
+        # Initialize GPIO capture with callback for character completion
         self._capture = MorseCapture(
             gpio_pin=self.gpio_pin,
             on_character_complete=self._on_character_complete,
@@ -164,6 +151,7 @@ class MorseAIDecoder:
         print("Waiting for input...")
         print()
         
+        # Main event loop - wait for keyboard interrupt
         try:
             while self._running:
                 time.sleep(0.1)
@@ -192,47 +180,18 @@ class MorseAIDecoder:
         
         print()
         print("Goodbye!")
-    
-    def decode_from_list(self, signals_list: List[List[float]]) -> str:
-        """
-        Decode a list of pre-captured signals (for testing).
-        
-        Args:
-            signals_list: List of signal arrays, each with 4 float values.
-        
-        Returns:
-            Decoded message string.
-        """
-        if not self._inference_engine:
-            self._inference_engine = MorseInference(
-                model_path=self.model_path,
-                config_path=self.config_path
-            )
-        
-        message = []
-        for signals in signals_list:
-            result = self._inference_engine.predict(signals)
-            if result.letter != 'U':
-                message.append(result.letter)
-        
-        return ''.join(message)
-
-
-# =============================================================================
-# CLI Entry Point
-# =============================================================================
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="MorseAI - AI-powered Morse Code Decoder for Raspberry Pi 5",
+        description="MorseAI - Neural Network-powered Morse Code Decoder for Raspberry Pi 5",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 main.py                    # Use defaults (GPIO 17)
-  python3 main.py --gpio 27          # Use GPIO 27 instead
-  python3 main.py --debug            # Enable debug output
-  python3 main.py --model custom.tflite  # Use custom model
+  python main.py                    # Use defaults (GPIO 17)
+  python main.py --gpio 27          # Use GPIO 27 instead
+  python main.py --debug            # Enable debug output
+  python main.py --model custom.tflite  # Use custom model
 
 For more information, see the README.md file.
         """
