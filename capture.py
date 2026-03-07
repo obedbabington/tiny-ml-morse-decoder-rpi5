@@ -68,6 +68,7 @@ class MorseCapture:
         self._button.when_pressed = self._on_button_pressed
         self._button.when_released = self._on_button_released
         
+        print(f"[DEBUG] MorseCapture initialized on GPIO {gpio_pin}")
         self._running = True
     
     def _get_time_us(self) -> float:
@@ -79,6 +80,8 @@ class MorseCapture:
         """Handle button press event - start timing the press duration."""
         if not self._running:
             return
+        
+        print("[DEBUG] Button PRESSED")
         
         # Cancel any pending timeout (user is still entering signals)
         self._cancel_timeout()
@@ -95,6 +98,8 @@ class MorseCapture:
         release_time = self._get_time_us()
         duration_us = release_time - self._press_start_time
         self._press_start_time = None
+        
+        print(f"[DEBUG] Button RELEASED, duration_us={duration_us:.1f}")
         
         # Store the signal duration if we haven't exceeded the maximum
         with self._lock:
