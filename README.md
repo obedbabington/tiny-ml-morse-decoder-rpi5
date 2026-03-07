@@ -6,11 +6,9 @@ This project was originally developed for an **Arm workshop** on the STM32 micro
 
 ## Demo
 
-[![MorseAI Demo Video](Morse_Code_NN_Demo.MOV)](Morse_Code_NN_Demo.MOV)
+[![MorseAI Demo Video](https://img.youtube.com/vi/0DMIoF-qInE/maxresdefault.jpg)](https://youtu.be/0DMIoF-qInE)
 
 *Watch the system in action: real-time Morse code decoding on Raspberry Pi*
-
-**Note:** The demo video file (`Morse_Code_NN_Demo.MOV`, ~380MB) is stored using Git LFS. If you don't see the video after cloning, ensure Git LFS is installed and run `git lfs pull` to download it.
 
 ## Project Structure
 
