@@ -6,11 +6,11 @@ This project was originally developed for an **Arm workshop** on the STM32 micro
 
 ## Demo
 
-https://github.com/obedbabington/tiny-ml-morse-decoder-rpi5/blob/main/Morse_Code_NN_Demo.MOV
+[![MorseAI Demo Video](Morse_Code_NN_Demo.MOV)](Morse_Code_NN_Demo.MOV)
 
 *Watch the system in action: real-time Morse code decoding on Raspberry Pi*
 
-**Note:** The video file is large (~380MB). For better viewing, download it or view it directly on GitHub.
+**Note:** The video file is large (~380MB). Click the link above to view it directly on GitHub, or [download it here](Morse_Code_NN_Demo.MOV).
 
 ## Project Structure
 
