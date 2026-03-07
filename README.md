@@ -2,7 +2,7 @@
 
 This project was originally developed for an **Arm workshop** on the STM32 microcontroller. This Raspberry Pi port uses TensorFlow Lite for efficient neural network inference, making it easier to deploy and experiment with. The original STM32 implementation can be found at: [tiny-ml-morse-decoder](https://github.com/obedbabington/tiny-ml-morse-decoder)
 
-**Tested on:** Raspberry Pi 5 with 32-bit OS (also supports 64-bit)
+**Tested on:** Raspberry Pi 5 with 64-bit OS (also supports 32-bit)
 
 ## Demo
 
@@ -89,34 +89,9 @@ This runs the inference engine with predefined test cases, showing predictions a
 
 ## Software Setup
 
-### Automated Setup (Recommended)
+### Automated Setup
 
-The `setup_pi.sh` script handles everything automatically. If you prefer manual setup or need to troubleshoot:
-
-### Manual Setup
-
-1. **Install system dependencies:**
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   sudo apt install -y python3 python3-pip python3-venv libopenblas0 liblapack3
-   ```
-
-2. **Create virtual environment:**
-   ```bash
-   python3 -m venv ~/morseai_venv
-   source ~/morseai_venv/bin/activate
-   ```
-
-3. **Install Python packages:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure GPIO permissions:**
-   ```bash
-   sudo usermod -a -G gpio $USER
-   # Logout and login for changes to take effect
-   ```
+The `setup_pi.sh` script handles everything automatically.
 
 ## Model Training & Conversion
 
@@ -207,4 +182,5 @@ The system consists of three main components:
 ## Acknowledgments
 
 - Original STM32 implementation: [tiny-ml-morse-decoder](https://github.com/obedbabington/tiny-ml-morse-decoder) (Arm workshop project @Ashesi University)
+
 
