@@ -1,6 +1,4 @@
-# MorseAI - Raspberry Pi Edition
-
-AI-powered Morse Code Decoder using TensorFlow Lite on Raspberry Pi.
+# Morse Code Decoder with AI - Raspberry Pi Edition
 
 This project was originally developed for an **Arm workshop** on the STM32 microcontroller. This Raspberry Pi port uses TensorFlow Lite for efficient neural network inference, making it easier to deploy and experiment with. The original STM32 implementation can be found at: [tiny-ml-morse-decoder](https://github.com/obedbabington/tiny-ml-morse-decoder)
 
@@ -209,3 +207,4 @@ The system consists of three main components:
 ## Acknowledgments
 
 - Original STM32 implementation: [tiny-ml-morse-decoder](https://github.com/obedbabington/tiny-ml-morse-decoder) (Arm workshop project @Ashesi University)
+
