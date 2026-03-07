@@ -24,13 +24,13 @@ morseai_venv/
 Thumbs.db
 
 # Model files (user must generate these)
-# Uncomment if you want to track model files:
-# !model/morse_classifier.tflite
-# !model/normalization_config.npz
+# Track specific model files, ignore others
 model/*.tflite
 model/*.npz
 model/*.txt
 !model/.gitkeep
+!model/morse_classifier.tflite
+!model/normalization_config.npz
 
 # Export directories
 model_export/
