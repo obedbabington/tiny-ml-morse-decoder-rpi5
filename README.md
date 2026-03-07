@@ -53,7 +53,7 @@ Connect a tactile button to the Raspberry Pi 5 GPIO header:
 
 ```bash
 git clone https://github.com/obedbabington/tiny-ml-morse-decoder-rpi5.git
-cd MorseAI_RPi5
+cd tiny-ml-morse-decoder-rpi5
 chmod +x setup_pi.sh
 ./setup_pi.sh
 ```
