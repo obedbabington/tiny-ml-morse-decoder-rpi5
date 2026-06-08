@@ -318,34 +318,42 @@ python main.py --debug          # see the raw durations the model receives
 
 ## Performance on Raspberry Pi 5
 
-Edge AI lives or dies on resource cost. The table below lists what this workload
-asks of the board. Model size is fixed; latency, throughput, memory, and CPU
-numbers come from `benchmark.py` (see below).
+Edge AI lives or dies on resource cost. The table below lists measured results
+from a **Raspberry Pi 5** running `benchmark.py` (10,000 iterations, 4 threads,
+200 warmup). TFLite loads the **XNNPACK** CPU delegate automatically.
 
 | Metric | Value | How it's measured |
 |--------|-------|-------------------|
 | Model size (on disk) | **4.18 KB** (4,276 bytes) | `ls -l model/morse_classifier.tflite` |
 | Input / output | 4 × float32 in → 11 × float32 out | model signature |
-| Inference latency (warm) | _run `benchmark.py`_ | median of 2,000 `invoke()` calls |
-| Throughput | _run `benchmark.py`_ | inferences/second in a tight loop |
-| Interpreter memory (RSS delta) | _run `benchmark.py`_ | RSS before vs. after loading the model |
-| CPU during inference | _run `benchmark.py`_ | process CPU time ÷ wall time |
+| Inference latency (median) | **3.0 µs** | `benchmark.py`, warm `invoke()` calls |
+| Inference latency (mean / p95) | **3.1 / 3.1 µs** | same run |
+| Inference latency (min / max) | **3.0 / 79.8 µs** | same run (max is an occasional outlier) |
+| Throughput | **~280,400 inferences/s** | tight loop, 4 threads |
+| Interpreter memory (RSS Δ) | **2.7 MiB** | 39.5 MiB before load → 42.2 MiB after |
+| Process RSS after load | **42.2 MiB** | `/proc` resident set size |
+| CPU during benchmark loop | **100%** | process CPU time ÷ wall time (see note below) |
+
+The latency numbers are far below one millisecond. In normal use with `main.py`,
+the bottleneck is the **2-second character timeout**, not inference. A 4 KB model
+leaves large headroom for bigger networks and real sensors.
+
+**Note on CPU:** The benchmark runs a tight loop with no idle time between calls.
+**100%** here means the process kept one core busy for essentially the entire
+timed section. It does **not** mean all four Pi cores were saturated, and it is
+not representative of CPU use while waiting for button input.
 
 ### Benchmarking inference (`benchmark.py`)
 
 `benchmark.py` loads the TFLite model and runs repeated inferences without touching
-GPIO. Use it after setup to measure latency, throughput, memory, and CPU on your
-board, or to compare thread counts (`-t 1`, `-t 2`, `-t 4`).
+GPIO. Use it after setup to confirm the model loads and to reproduce the numbers
+above, or to compare thread counts (`-t 1`, `-t 2`, `-t 4`).
 
 ```bash
 source ~/morseai_venv/bin/activate
-python benchmark.py            # 2000 iterations, 4 threads
-python benchmark.py -n 5000 -t 2
+python benchmark.py              # 10000 iterations, 4 threads
+python benchmark.py -n 50000 -t 2
 ```
-
-Paste the printed median latency and memory figures into the table above. On a Pi 5,
-expect sub-millisecond inference for a model this small; the practical bottleneck
-in normal use is the 2-second character timeout, not the network forward pass.
 
 ---
 
@@ -483,7 +491,6 @@ python benchmark.py   # how fast/heavy is inference on this board?
 
 ## Roadmap / future work
 
-- Publish measured Pi 5 benchmark numbers (latency, memory, CPU) in the table above.
 - Grow and balance the dataset; support full A–Z and digits.
 - Decode whole *words* (inter-character and inter-word gaps), not single letters.
 - Add an integer-quantized (`int8`) variant and compare accuracy vs. size.

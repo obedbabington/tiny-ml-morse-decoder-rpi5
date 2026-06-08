@@ -141,7 +141,7 @@ def main() -> None:
     print(f"Throughput        : {args.iterations / wall:8.0f} inferences/s")
     print(
         f"CPU during loop   : {cpu_pct:8.1f} %  "
-        "(process CPU time as a fraction of wall time)"
+        "(process CPU time / wall time; ~100% = tight CPU-bound loop)"
     )
     if not np.isnan(rss_after):
         print(f"RSS before load   : {rss_before:8.1f} MiB")
