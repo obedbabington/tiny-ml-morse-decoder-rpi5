@@ -13,8 +13,8 @@ This script does not use GPIO, so you can run it on a Raspberry Pi 5 after
 deployment or on a development machine to sanity-check that the model loads.
 
 Usage:
-    python3 benchmark.py                 # 2000 iterations, 4 threads
-    python3 benchmark.py -n 5000 -t 2    # custom iteration count and thread count
+    python3 benchmark.py                 # 10000 iterations, 4 threads
+    python3 benchmark.py -n 50000 -t 2   # custom iteration count and thread count
 
 When to run it:
   - After setup, to confirm the model loads and get baseline latency numbers
@@ -60,9 +60,13 @@ def rss_mb() -> float:
 
 
 def cpu_times() -> float:
-    """Return total process CPU time (user + system) in seconds."""
-    t = os.times()
-    return t.user + t.system
+    """Return process CPU time in seconds using nanosecond-resolution clock.
+
+    time.process_time() reads CLOCK_PROCESS_CPUTIME_ID directly, giving
+    nanosecond precision. os.times() only has 10 ms (100 Hz jiffy) resolution,
+    which rounds to zero for short loops and produces a misleading 0.0% result.
+    """
+    return time.process_time()
 
 
 def main() -> None:
@@ -70,8 +74,8 @@ def main() -> None:
         description="Benchmark MorseAI TFLite inference latency and resource use."
     )
     parser.add_argument(
-        "-n", "--iterations", type=int, default=2000,
-        help="number of timed inference calls after warmup (default: 2000)",
+        "-n", "--iterations", type=int, default=10000,
+        help="number of timed inference calls after warmup (default: 10000)",
     )
     parser.add_argument(
         "-t", "--threads", type=int, default=4,
