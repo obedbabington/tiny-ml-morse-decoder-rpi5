@@ -44,3 +44,8 @@ model_export/
 # Local build tooling (vendored Python packages for doc generation)
 .build_tools/
 .python-version
+
+# Internal publication docs (not for GitHub)
+docs/build_docx.py
+docs/whitepaper.md
+docs/MorseAI_EdgeAI_RaspberryPi5.docx
