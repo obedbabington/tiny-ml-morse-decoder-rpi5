@@ -48,7 +48,7 @@ Morse is almost the simplest "real" signal you can classify:
   presses, so a sample is just four numbers (press durations). You can read the
   raw data and sanity-check the model by eye.
 - **It's genuinely temporal.** A dot and a dash differ only in *duration*, which
-  forces you to think about timing, sampling, and noise — the same concerns you'd
+  forces you to think about timing, sampling, and noise: the same concerns you'd
   have with vibration or audio, just slower and easier to debug.
 - **You can generate your own dataset in minutes** by pressing a button, so you
   own the full pipeline from data collection to deployment.
@@ -100,7 +100,7 @@ You need almost nothing:
 
 ### Wiring
 
-Connect the button between GPIO 17 and ground. No resistor required — the code
+Connect the button between GPIO 17 and ground. No resistor required; the code
 enables the Pi's *internal* pull-up.
 
 | Button terminal | Pi physical pin | Pi function | Role |
@@ -110,7 +110,7 @@ enables the Pi's *internal* pull-up.
 
 With the internal pull-up enabled, GPIO 17 reads **HIGH** when the button is
 open and **LOW** when you press it (the button shorts the pin to ground). The
-capture code measures how long it stays LOW — that duration is the whole signal.
+capture code measures how long it stays LOW. That duration is the whole signal.
 
 ---
 
@@ -154,12 +154,12 @@ def _get_time_us(self) -> float:
     return time.perf_counter_ns() / 1000.0
 ```
 
-`perf_counter_ns()` is a monotonic, high-resolution clock — the right tool when
+`perf_counter_ns()` is a monotonic, high-resolution clock: the right tool when
 you're measuring elapsed time and don't want the wall clock jumping under you.
 
 Two details matter more than they look:
 
-- **Debounce.** Mechanical buttons "chatter" — a single physical press can
+- **Debounce.** Mechanical buttons "chatter"; a single physical press can
   register as several electrical transitions. `gpiozero`'s `bounce_time=0.05`
   (50 ms) filters that out so one press is one event.
 - **End-of-character timeout.** How does the program know you've *finished* a
@@ -217,12 +217,12 @@ Design choices worth calling out:
   leaves almost no memory footprint. Bigger would only overfit 450 samples.
 - **The 11th class is "unclassified" (`U`).** During training we add ~10% random
   noise vectors labelled `U`. This teaches the model to say *"I don't know"*
-  instead of confidently mapping garbage to the nearest letter — a small trick
+  instead of confidently mapping garbage to the nearest letter, a small trick
   that makes the deployed system feel far less brittle.
 - **Inputs are standardized.** Raw durations are tens to hundreds of thousands of
   microseconds. A `StandardScaler` (subtract mean, divide by standard deviation)
   brings them to a sane range so training converges quickly. **The exact same
-  mean and scale must be applied at inference time** — get this wrong and the
+  mean and scale must be applied at inference time**. Get this wrong and the
   model sees data it was never trained on. That's why the scaler parameters are
   exported alongside the model.
 
@@ -240,8 +240,8 @@ tflite_model = converter.convert()
 
 The notebook exports two artifacts into `model/`:
 
-- `morse_classifier.tflite` — the model itself (**4,276 bytes**).
-- `normalization_config.npz` — the `StandardScaler` mean and scale, so inference
+- `morse_classifier.tflite`: the model itself (**4,276 bytes**).
+- `normalization_config.npz`: the `StandardScaler` mean and scale, so inference
   applies *exactly* the transform used in training.
 
 Keeping the normalization parameters next to the model is the kind of detail
@@ -264,7 +264,7 @@ A prediction is: normalize → set tensor → `invoke()` → read the softmax ou
 take the argmax. The engine also reports how long `invoke()` took, which is what
 you'll see in the performance section.
 
-Test this stage in isolation too — it runs known patterns through the model
+Test this stage in isolation too. It runs known patterns through the model
 without touching the GPIO:
 
 ```bash
@@ -318,20 +318,24 @@ python main.py --debug          # see the raw durations the model receives
 
 ## Performance on Raspberry Pi 5
 
-Edge AI lives or dies on resource cost, so here is what this workload actually
-asks of the board. Model size is exact; the runtime figures are produced by the
-included `benchmark.py` (see note below).
+Edge AI lives or dies on resource cost. The table below lists what this workload
+asks of the board. Model size is fixed; latency, throughput, memory, and CPU
+numbers come from `benchmark.py` (see below).
 
 | Metric | Value | How it's measured |
 |--------|-------|-------------------|
 | Model size (on disk) | **4.18 KB** (4,276 bytes) | `ls -l model/morse_classifier.tflite` |
 | Input / output | 4 × float32 in → 11 × float32 out | model signature |
-| Inference latency (warm) | _measure with `benchmark.py`_ † | median of 2,000 `invoke()` calls |
-| Throughput | _measure with `benchmark.py`_ | inferences/second in a tight loop |
-| Interpreter memory (RSS delta) | _measure with `benchmark.py`_ | RSS before vs. after loading the model |
-| CPU during inference | _measure with `benchmark.py`_ | process CPU time ÷ wall time |
+| Inference latency (warm) | _run `benchmark.py`_ | median of 2,000 `invoke()` calls |
+| Throughput | _run `benchmark.py`_ | inferences/second in a tight loop |
+| Interpreter memory (RSS delta) | _run `benchmark.py`_ | RSS before vs. after loading the model |
+| CPU during inference | _run `benchmark.py`_ | process CPU time ÷ wall time |
 
-Run the benchmark **on the Pi** to fill in the table:
+### Benchmarking inference (`benchmark.py`)
+
+`benchmark.py` loads the TFLite model and runs repeated inferences without touching
+GPIO. Use it after setup to measure latency, throughput, memory, and CPU on your
+board, or to compare thread counts (`-t 1`, `-t 2`, `-t 4`).
 
 ```bash
 source ~/morseai_venv/bin/activate
@@ -339,17 +343,9 @@ python benchmark.py            # 2000 iterations, 4 threads
 python benchmark.py -n 5000 -t 2
 ```
 
-> † **Expectation, to confirm on hardware.** This network is a few hundred
-> multiply-accumulates per inference. On the Pi 5's quad-core Cortex-A76
-> (up to 2.4 GHz) that's well under a millisecond — realistically tens of
-> microseconds per `invoke()`. The honest bottleneck in this application isn't
-> the model at all; it's the **2-second human-input timeout**. Once you've run
-> `benchmark.py` on your board, paste the numbers into the table above and into
-> the Word document.
-
-The takeaway is more important than the exact microseconds: a model this size is
-*free* on a Pi 5. You have an enormous amount of headroom to move up to real
-sensors and larger models before compute becomes your constraint.
+Paste the printed median latency and memory figures into the table above. On a Pi 5,
+expect sub-millisecond inference for a model this small; the practical bottleneck
+in normal use is the 2-second character timeout, not the network forward pass.
 
 ---
 
@@ -362,7 +358,7 @@ A few things that were not obvious going in:
   typical for Edge AI: capturing clean, consistently-shaped data is most of the
   work.
 - **Normalization is a deployment concern, not just a training one.** Forgetting
-  to ship the scaler — or shipping the wrong values — produces a model that
+  to ship the scaler, or shipping the wrong values, produces a model that
   "loads fine" and predicts nonsense. Exporting `normalization_config.npz`
   alongside the model is the fix.
 - **An explicit "I don't know" class is worth the effort.** Without the `U`
@@ -397,10 +393,10 @@ Some directions that reuse this skeleton almost verbatim:
   gestures. The "variable-length input, fixed-length feature" trick from Morse
   carries straight over.
 - **Anomaly detection.** Instead of naming a class, learn what *normal* looks
-  like and raise a flag when input drifts away from it — the `U`/unclassified
+  like and raise a flag when input drifts away from it (the `U`/unclassified
   idea, taken further.
 - **Other IoT edge workloads.** Keyword spotting, occupancy sensing, simple
-  fault detection — anything where you want a decision *at the sensor* without a
+  fault detection: anything where you want a decision *at the sensor* without a
   round-trip to the cloud, for latency, privacy, or connectivity reasons.
 
 The step up from here is usually (a) more / better data, (b) a slightly larger
@@ -413,7 +409,7 @@ None of those change the deployment story.
 
 This project exists on both an STM32 microcontroller and a Raspberry Pi 5, which
 makes it a nice side-by-side for two very different points on the Edge AI
-spectrum. Neither is "better" — they answer different questions.
+spectrum. Neither is "better"; they answer different questions.
 
 | Dimension | STM32 (microcontroller) | Raspberry Pi 5 (Linux SBC) |
 |-----------|-------------------------|----------------------------|
@@ -432,7 +428,7 @@ In plain terms:
   friction. This is why the port exists.
 - **Ship to the STM32 when constraints bite.** When you need microwatts, a unit
   cost in cents, or hard real-time guarantees, the microcontroller is the right
-  home — and TFLite Micro lets you take essentially the same model there.
+  home, and TFLite Micro lets you take essentially the same model there.
 
 A realistic workflow is to do both: develop and validate the model on the Pi,
 then port the proven model down to the MCU for production. The Pi is the
@@ -475,9 +471,9 @@ python benchmark.py   # how fast/heavy is inference on this board?
 ## Troubleshooting
 
 - **`capture.py` doesn't react to presses.** You were probably added to the
-  `gpio` group during setup — log out and back in. Then re-check wiring: GPIO 17
+  `gpio` group during setup; log out and back in. Then re-check wiring: GPIO 17
   (pin 11) ↔ button ↔ GND (pin 9).
-- **Every letter comes back as `U`.** Almost always a normalization mismatch —
+- **Every letter comes back as `U`.** Almost always a normalization mismatch;
   make sure `model/normalization_config.npz` matches the model you trained.
 - **`tflite_runtime` import fails.** Use the Python 3.11 venv created by
   `setup_pi.sh`; the wheels aren't available for every Python version.
@@ -496,11 +492,11 @@ python benchmark.py   # how fast/heavy is inference on this board?
 ## Acknowledgments
 
 - Original STM32 implementation: [tiny-ml-morse-decoder](https://github.com/obedbabington/tiny-ml-morse-decoder)
-  — an Arm workshop project at Ashesi University, which this Raspberry Pi 5 port
+, an Arm workshop project at Ashesi University, which this Raspberry Pi 5 port
   is based on.
 
 ## Contributing
 
-Issues and pull requests are welcome — especially measured benchmarks from
+Issues and pull requests are welcome, especially measured benchmarks from
 different Pi models, more training data, and A–Z support. Fork, branch, commit,
 and open a PR.

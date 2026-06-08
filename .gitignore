@@ -40,3 +40,7 @@ model_export/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Local build tooling (vendored Python packages for doc generation)
+.build_tools/
+.python-version
